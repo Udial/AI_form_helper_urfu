@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI помощник</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --text: #e9efff;
+      --muted: #c7d5ff;
+      --primary: #6b7dff;
+      --primary-hover: #8b99ff;
+      --border: rgba(255, 255, 255, 0.24);
+      --danger-bg: rgba(255, 95, 137, 0.2);
+      --danger-text: #ffd7e2;
+      --user-bubble: linear-gradient(135deg, #7a8cff, #566fff 60%, #415eff);
+      --ai-bubble: rgba(195, 214, 255, 0.2);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      color: var(--text);
+      font-family: "Segoe UI", Arial, sans-serif;
+      overflow: hidden;
+      background: linear-gradient(130deg, #0e0f25, #1a1d44 30%, #2a1150 65%, #101534);
+      background-size: 200% 200%;
+      animation: bgShift 16s ease infinite;
+      position: relative;
+    }
+
+    body::before,
+    body::after {
+      content: "";
+      position: fixed;
+      inset: auto;
+      border-radius: 50%;
+      filter: blur(64px);
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.75;
+    }
+
+    body::before {
+      width: 42vw;
+      height: 42vw;
+      min-width: 320px;
+      min-height: 320px;
+      background: radial-gradient(circle, rgba(78, 220, 255, 0.7), rgba(78, 220, 255, 0));
+      top: -10%;
+      left: -8%;
+      animation: orbFloatA 12s ease-in-out infinite alternate;
+    }
+
+    body::after {
+      width: 38vw;
+      height: 38vw;
+      min-width: 280px;
+      min-height: 280px;
+      background: radial-gradient(circle, rgba(178, 90, 255, 0.65), rgba(178, 90, 255, 0));
+      bottom: -8%;
+      right: -6%;
+      animation: orbFloatB 14s ease-in-out infinite alternate;
+    }
+
+    .assistant {
+      width: min(780px, 100%);
+      height: min(84vh, 760px);
+      background: linear-gradient(155deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.08));
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      box-shadow: 0 28px 65px rgba(5, 8, 35, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      display: grid;
+      grid-template-rows: auto auto 1fr auto auto;
+      overflow: hidden;
+      position: relative;
+      z-index: 1;
+    }
+
+    .assistant__header {
+      padding: 22px 24px 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0));
+    }
+
+    .assistant__title {
+      margin: 0;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+      text-shadow: 0 6px 18px rgba(6, 15, 49, 0.35);
+    }
+
+    .assistant__subtitle {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .quick-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 12px 24px 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+    }
+
+    .quick-actions button {
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      background: rgba(255, 255, 255, 0.1);
+      color: #f1f5ff;
+      border-radius: 999px;
+      padding: 8px 13px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+    }
+
+    .quick-actions button:hover {
+      background: rgba(255, 255, 255, 0.18);
+      border-color: rgba(255, 255, 255, 0.38);
+      transform: translateY(-1px);
+    }
+
+    .chat-list {
+      padding: 20px 24px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      background: linear-gradient(180deg, rgba(6, 8, 28, 0.2), rgba(5, 7, 24, 0.06));
+      scrollbar-color: rgba(255, 255, 255, 0.4) transparent;
+    }
+
+    .message {
+      max-width: 80%;
+      border-radius: 16px;
+      padding: 11px 13px;
+      line-height: 1.45;
+      font-size: 14px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      animation: messageIn 0.28s ease both;
+    }
+
+    .message--user {
+      margin-left: auto;
+      background: var(--user-bubble);
+      color: #ffffff;
+      border-bottom-right-radius: 6px;
+      box-shadow: 0 12px 20px rgba(33, 58, 175, 0.45);
+    }
+
+    .message--ai {
+      margin-right: auto;
+      background: var(--ai-bubble);
+      color: #ecf2ff;
+      border-bottom-left-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+
+    .status-row {
+      min-height: 26px;
+      padding: 8px 24px 4px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .status-row strong {
+      color: #ffffff;
+    }
+
+    .status-row--error {
+      margin: 0 24px 10px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: var(--danger-bg);
+      color: var(--danger-text);
+      border: 1px solid rgba(255, 183, 200, 0.3);
+    }
+
+    .input-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      padding: 4px 24px 22px;
+      border-top: 1px solid rgba(255, 255, 255, 0.14);
+      align-items: center;
+    }
+
+    .input-row input {
+      width: 100%;
+      border: 1px solid rgba(255, 255, 255, 0.24);
+      background: rgba(13, 20, 52, 0.45);
+      color: #f2f6ff;
+      border-radius: 12px;
+      padding: 12px 13px;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+    }
+
+    .input-row input::placeholder {
+      color: #b3c2ec;
+    }
+
+    .input-row input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 4px rgba(120, 138, 255, 0.2);
+      background: rgba(15, 22, 58, 0.68);
+    }
+
+    .send-button {
+      border: none;
+      border-radius: 12px;
+      padding: 12px 18px;
+      color: #ffffff;
+      background: linear-gradient(135deg, #7588ff, #5a71ff 58%, #4463ff);
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 12px 24px rgba(48, 72, 220, 0.5);
+      transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .send-button:hover:not(:disabled) {
+      filter: brightness(1.07);
+      transform: translateY(-1px);
+      box-shadow: 0 16px 26px rgba(48, 72, 220, 0.55);
+    }
+
+    .send-button:disabled,
+    .quick-actions button:disabled,
+    .input-row input:disabled {
+      opacity: 0.58;
+      cursor: not-allowed;
+    }
+
+    @keyframes bgShift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    @keyframes orbFloatA {
+      0% { transform: translate(0, 0) scale(1); }
+      100% { transform: translate(40px, 40px) scale(1.12); }
+    }
+
+    @keyframes orbFloatB {
+      0% { transform: translate(0, 0) scale(1); }
+      100% { transform: translate(-35px, -30px) scale(1.14); }
+    }
+
+    @keyframes messageIn {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @media (max-width: 720px) {
+      body {
+        padding: 14px;
+      }
+
+      .assistant {
+        width: 100%;
+        height: min(88vh, 820px);
+        border-radius: 18px;
+      }
+
+      .assistant__header,
+      .quick-actions,
+      .chat-list,
+      .status-row,
+      .input-row {
+        padding-left: 14px;
+        padding-right: 14px;
+      }
+
+      .input-row {
+        grid-template-columns: 1fr;
+      }
+
+      .send-button {
+        width: 100%;
+      }
+
+      .message {
+        max-width: 90%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <section class="assistant">
+    <header class="assistant__header">
+      <h1 class="assistant__title">AI помощник для заявки</h1>
+      <p class="assistant__subtitle">Опишите идею проекта, а я помогу сформулировать заявку.</p>
+    </header>
+
+    <div class="quick-actions" id="quickActions">
+      <button type="button" data-prompt="Сгенерировать описание проекта для заявки.">Сгенерировать описание</button>
+      <button type="button" data-prompt="Предложить 3 цели проекта.">Сгенерировать цели</button>
+      <button type="button" data-prompt="Сделай вариант названия проекта.">Придумать название</button>
+    </div>
+
+    <div class="chat-list" id="chatList"></div>
+
+    <div class="status-row" id="statusRow"></div>
+    <div id="errorRow"></div>
+
+    <form class="input-row" id="chatForm">
+      <input
+        id="chatInput"
+        type="text"
+        placeholder="Например: хочу сделать веб-сервис для студентов..."
+        autocomplete="off"
+      />
+      <button class="send-button" id="sendButton" type="submit">Отправить</button>
+    </form>
+  </section>
+
+  <script>
+    const STORAGE_KEY = "assistant-chat-history";
+    const state = {
+      messages: loadMessages(),
+      currentInput: "",
+      isLoading: false,
+      error: ""
+    };
+
+    const chatList = document.getElementById("chatList");
+    const chatForm = document.getElementById("chatForm");
+    const chatInput = document.getElementById("chatInput");
+    const sendButton = document.getElementById("sendButton");
+    const statusRow = document.getElementById("statusRow");
+    const errorRow = document.getElementById("errorRow");
+    const quickActions = document.getElementById("quickActions");
+
+    function loadMessages() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) {
+          return [{
+            role: "ai",
+            text: "Привет! Опиши идею проекта, и я помогу собрать текст заявки."
+          }];
+        }
+
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      } catch (error) {
+        console.error("Не удалось загрузить историю чата", error);
+      }
+
+      return [{
+        role: "ai",
+        text: "Привет! Опиши идею проекта, и я помогу собрать текст заявки."
+      }];
+    }
+
+    function saveMessages() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state.messages));
+    }
+
+    function escapeHtml(text) {
+      return text
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    let previousMessagesSnapshot = "";
+
+    function renderMessages() {
+      const messagesSnapshot = JSON.stringify(state.messages);
+      if (messagesSnapshot === previousMessagesSnapshot) {
+        return;
+      }
+
+      previousMessagesSnapshot = messagesSnapshot;
+      chatList.innerHTML = state.messages
+        .map((message) => {
+          const cls = message.role === "user" ? "message message--user" : "message message--ai";
+          return `<div class="${cls}">${escapeHtml(message.text)}</div>`;
+        })
+        .join("");
+
+      chatList.scrollTop = chatList.scrollHeight;
+    }
+
+    function renderControls() {
+      chatInput.value = state.currentInput;
+      chatInput.disabled = state.isLoading;
+      sendButton.disabled = state.isLoading || !state.currentInput.trim();
+
+      quickActions.querySelectorAll("button").forEach((button) => {
+        button.disabled = state.isLoading;
+      });
+
+      if (state.isLoading) {
+        statusRow.innerHTML = "<strong>ИИ думает...</strong>";
+      } else {
+        statusRow.textContent = "Готово к новому запросу.";
+      }
+
+      if (state.error) {
+        errorRow.innerHTML = `<div class="status-row--error">${escapeHtml(state.error)}</div>`;
+      } else {
+        errorRow.innerHTML = "";
+      }
+    }
+
+    function render() {
+      renderMessages();
+      renderControls();
+    }
+
+    function pushMessage(role, text) {
+      state.messages.push({ role, text });
+      saveMessages();
+      render();
+    }
+
+    function formatAssistantText(payload) {
+      if (!payload || typeof payload !== "object") {
+        return "Ответ получен, но формат данных не распознан.";
+      }
+
+      if (typeof payload.answer === "string" && payload.answer.trim()) {
+        return payload.answer.trim();
+      }
+
+      const parts = [];
+      if (payload.title) parts.push(`Название: ${payload.title}`);
+      if (payload.description) parts.push(`Описание: ${payload.description}`);
+      if (payload.goals) parts.push(`Цели: ${payload.goals}`);
+
+      return parts.length > 0
+        ? parts.join("\n\n")
+        : "Ответ получен, но полезный текст отсутствует.";
+    }
+
+    async function requestAssistantReply(idea) {
+      const response = await fetch("/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idea })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Ошибка сервера: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return formatAssistantText(data);
+    }
+
+    async function submitPrompt(prompt) {
+      const userText = prompt.trim();
+      if (!userText || state.isLoading) return;
+
+      state.currentInput = "";
+      state.error = "";
+      state.isLoading = true;
+      pushMessage("user", userText);
+      render();
+
+      try {
+        const assistantText = await requestAssistantReply(userText);
+        pushMessage("ai", assistantText);
+      } catch (error) {
+        console.error(error);
+        state.error = "Не удалось получить ответ.";
+        pushMessage("ai", "Извините, сейчас не получилось обработать запрос. Попробуйте еще раз.");
+      } finally {
+        state.isLoading = false;
+        render();
+        chatInput.focus();
+      }
+    }
+
+    chatInput.addEventListener("input", (event) => {
+      state.currentInput = event.target.value;
+      render();
+    });
+
+    chatForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      submitPrompt(state.currentInput);
+    });
+
+    quickActions.addEventListener("click", (event) => {
+      const button = event.target.closest("button");
+      if (!button || state.isLoading) return;
+
+      state.currentInput = button.dataset.prompt || "";
+      render();
+      chatInput.focus();
+    });
+
+    render();
+  </script>
+</body>
+</html>
