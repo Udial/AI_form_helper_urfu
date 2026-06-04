@@ -1,0 +1,1230 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Assistant Popup</title>
+  <style>
+    :root {
+      --text: #e9efff;
+      --muted: #c7d5ff;
+      --border: rgba(255, 255, 255, 0.24);
+      --panel: linear-gradient(155deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.08));
+      --field-bg: rgba(10, 18, 50, 0.42);
+      --field-border: rgba(255, 255, 255, 0.22);
+      --field-invalid: rgba(255, 126, 163, 0.72);
+      --drawer: linear-gradient(150deg, #081129, #11234a 62%, #121b3b);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", Arial, sans-serif;
+      color: var(--text);
+      background: linear-gradient(125deg, #0e0f25, #1b1d44 32%, #291152 66%, #101536);
+      background-size: 220% 220%;
+      animation: bgShift 15s ease infinite;
+    }
+    .shell { width: min(1050px, 100%); margin: 0 auto; padding: 24px 16px; }
+    .title { margin: 0 0 18px; font-size: 30px; }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 18px;
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      box-shadow: 0 24px 52px rgba(4, 10, 33, 0.45);
+    }
+    .card h2 { margin: 0 0 8px; }
+    .section-note { margin: 0 0 12px; color: var(--muted); font-size: 14px; }
+    .draft-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: rgba(255, 255, 255, 0.05);
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .ghost-btn {
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      background: rgba(255, 255, 255, 0.06);
+      color: #e9efff;
+      border-radius: 999px;
+      font-size: 12px;
+      padding: 6px 10px;
+      cursor: pointer;
+    }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+    .field { margin-bottom: 12px; }
+    .field:last-child { margin-bottom: 0; }
+    .field-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    .label { font-size: 14px; font-weight: 600; }
+    .grid .label { display: block; margin-bottom: 8px; }
+    .counter { font-size: 11px; color: var(--muted); }
+    .input,
+    .textarea {
+      width: 100%;
+      border: 1px solid var(--field-border);
+      border-radius: 12px;
+      padding: 10px 11px;
+      background: var(--field-bg);
+      color: #f2f6ff;
+      outline: none;
+      font-family: inherit;
+      transition: border-color .2s ease;
+    }
+    .input::placeholder, .textarea::placeholder { color: #b3c2ec; }
+    .input.invalid, .textarea.invalid { border-color: var(--field-invalid); }
+    .textarea { min-height: 95px; resize: vertical; }
+    .field-error { min-height: 16px; color: #ffc3d8; font-size: 12px; margin-top: 4px; }
+    .mini-ai {
+      border: none;
+      border-radius: 999px;
+      padding: 7px 12px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #fff;
+      cursor: pointer;
+      background: linear-gradient(120deg, #7d53ff, #20b7ff, #6f8dff, #ff6fe7);
+      background-size: 280% 280%;
+      animation: flowGradient 6s ease infinite;
+    }
+    .submit-row {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 14px;
+      gap: 8px;
+    }
+    .submit-btn {
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      font-weight: 600;
+      padding: 10px 14px;
+      cursor: pointer;
+      background: linear-gradient(120deg, #6674ff, #4fa2ff);
+    }
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(5, 12, 28, 0.45);
+      opacity: 0;
+      pointer-events: none;
+      transition: .25s;
+      z-index: 30;
+    }
+    .overlay.open { opacity: 1; pointer-events: all; }
+    .drawer {
+      position: fixed;
+      right: 0;
+      top: 0;
+      height: 100vh;
+      width: min(740px, 100vw);
+      z-index: 31;
+      transform: translateX(102%);
+      transition: transform .3s ease;
+      background: var(--drawer);
+      border-left: 1px solid rgba(255, 255, 255, 0.13);
+      box-shadow: -16px 0 34px rgba(0, 8, 21, 0.45);
+      display: grid;
+      grid-template-columns: 220px 1fr;
+    }
+    .drawer.open { transform: translateX(0); }
+    .left { border-right: 1px solid rgba(255, 255, 255, 0.12); padding: 14px 10px; }
+    .brand { display: flex; align-items: center; gap: 8px; font-weight: 700; margin-bottom: 12px; }
+    .star {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: radial-gradient(circle at 32% 32%, #ffe98a, #e08dff 45%, #6f83ff 80%);
+    }
+    .list { display: grid; gap: 7px; }
+    .list button {
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 9px;
+      background: rgba(255, 255, 255, 0.05);
+      color: #deebff;
+      text-align: left;
+      font-size: 12px;
+      padding: 8px;
+      cursor: pointer;
+    }
+    .right { display: grid; grid-template-rows: auto auto 1fr auto auto auto; min-width: 0; }
+    .ai-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 12px 14px 8px;
+    }
+    .ai-head h3 { margin: 0; font-size: 16px; }
+    .ai-head p { margin: 4px 0 0; color: #abc1eb; font-size: 12px; }
+    .close {
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(255, 255, 255, 0.05);
+      color: #d3e1ff;
+      border-radius: 8px;
+      padding: 6px 9px;
+      cursor: pointer;
+    }
+    .quick {
+      display: flex;
+      gap: 7px;
+      flex-wrap: wrap;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 8px 14px;
+    }
+    .quick button {
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #e0ebff;
+      padding: 6px 10px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .chat {
+      overflow-y: auto;
+      padding: 10px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+    }
+    .msg {
+      max-width: 88%;
+      border-radius: 14px;
+      padding: 8px 10px;
+      font-size: 13px;
+      line-height: 1.4;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .msg.user {
+      margin-left: auto;
+      background: linear-gradient(135deg, #4565ff, #6a58ff);
+      color: #fff;
+      border-bottom-right-radius: 6px;
+    }
+    .msg.ai {
+      margin-right: auto;
+      background: rgba(255, 255, 255, 0.12);
+      color: #f0f5ff;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-bottom-left-radius: 6px;
+    }
+    .status { min-height: 20px; color: #a7bce3; font-size: 12px; padding: 0 14px 4px; }
+    .error { margin: 0 14px 8px; font-size: 12px; padding: 8px 9px; border-radius: 8px; color: #ffd7e2; border: 1px solid rgba(255, 163, 185, 0.45); background: rgba(255, 95, 137, 0.2); }
+    .preview {
+      margin: 0 14px 10px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.05);
+      padding: 10px;
+      font-size: 12px;
+      color: #dce8ff;
+      min-height: 60px;
+      max-height: 110px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+    }
+    .insert-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0 14px 8px;
+    }
+    .insert-mode {
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #eaf1ff;
+      font-size: 12px;
+      padding: 7px 8px;
+    }
+    .insert {
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 999px;
+      padding: 7px 10px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #e8f0ff;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .row {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      gap: 8px;
+      padding: 9px 14px 10px;
+      border-top: 1px solid rgba(255, 255, 255, 0.12);
+    }
+    .row input {
+      border: 1px solid rgba(255, 255, 255, 0.24);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #eef3ff;
+      padding: 9px 10px;
+      font-size: 13px;
+      outline: none;
+    }
+    .send {
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      font-weight: 600;
+      padding: 9px 11px;
+      cursor: pointer;
+      background: linear-gradient(120deg, #6674ff, #4fa2ff);
+    }
+    .voice {
+      border: 1px solid rgba(167, 197, 255, 0.65);
+      border-radius: 50%;
+      color: #edf3ff;
+      cursor: pointer;
+      background: linear-gradient(135deg, rgba(129, 94, 255, 0.5), rgba(54, 186, 255, 0.5));
+      width: 42px;
+      height: 42px;
+      min-width: 42px;
+      display: grid;
+      place-items: center;
+      font-size: 16px;
+      line-height: 1;
+      box-shadow: 0 0 0 2px rgba(129, 153, 255, 0.18), 0 8px 18px rgba(67, 108, 255, 0.35);
+      transition: transform .2s ease, filter .2s ease, box-shadow .2s ease;
+    }
+    .voice:hover:not(:disabled) {
+      transform: translateY(-1px);
+      filter: brightness(1.08);
+      box-shadow: 0 0 0 2px rgba(138, 171, 255, 0.3), 0 10px 22px rgba(67, 108, 255, 0.45);
+    }
+    .voice.listening {
+      background: linear-gradient(135deg, rgba(255, 109, 166, 0.55), rgba(255, 156, 90, 0.45));
+      border-color: rgba(255, 192, 213, 0.82);
+      color: #ffe8f1;
+      box-shadow: 0 0 0 2px rgba(255, 164, 196, 0.25), 0 0 18px rgba(255, 136, 179, 0.5);
+      animation: micPulse 1.1s ease-in-out infinite;
+    }
+    .send:disabled,
+    .voice:disabled,
+    .insert:disabled,
+    .quick button:disabled,
+    .row input:disabled,
+    .submit-btn:disabled { opacity: .55; cursor: not-allowed; }
+    @keyframes flowGradient { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+    @keyframes bgShift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+    @keyframes micPulse {
+      0% { box-shadow: 0 0 0 2px rgba(255, 164, 196, 0.2), 0 0 10px rgba(255, 136, 179, 0.45); }
+      70% { box-shadow: 0 0 0 8px rgba(255, 164, 196, 0.05), 0 0 18px rgba(255, 136, 179, 0.65); }
+      100% { box-shadow: 0 0 0 2px rgba(255, 164, 196, 0.2), 0 0 10px rgba(255, 136, 179, 0.45); }
+    }
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: 1fr; }
+      .drawer { width: 100vw; grid-template-columns: 160px 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <h1 class="title">Заполните заявку на проект</h1>
+    <section class="card">
+      <h2>Описание проекта</h2>
+      <p class="section-note">Заполните основную информацию о проекте.</p>
+
+      <div class="draft-row">
+        <span id="draftStatus">Черновик загружен.</span>
+        <button class="ghost-btn" id="resetDraftButton" type="button">Сбросить черновик</button>
+      </div>
+
+      <form id="projectForm" novalidate>
+        <div class="grid">
+          <div class="field">
+            <label class="label" for="projectName">Название проекта *</label>
+            <input class="input" id="projectName" placeholder="Напишите название проекта" />
+            <div class="counter" id="count-projectName"></div>
+            <div class="field-error" id="error-projectName"></div>
+          </div>
+          <div class="field">
+            <label class="label" for="semester">Семестр реализации *</label>
+            <input class="input" id="semester" placeholder="Укажите период реализации" />
+            <div class="counter" id="count-semester"></div>
+            <div class="field-error" id="error-semester"></div>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field-head">
+            <label class="label" for="projectGoal">Цель *</label>
+            <button class="mini-ai js-open-ai" type="button" data-field-id="projectGoal" data-field-name="Цель">✦ AI</button>
+          </div>
+          <textarea class="textarea" id="projectGoal" placeholder="Опишите, что должно быть достигнуто..."></textarea>
+          <div class="counter" id="count-projectGoal"></div>
+          <div class="field-error" id="error-projectGoal"></div>
+        </div>
+
+        <div class="field">
+          <div class="field-head">
+            <label class="label" for="projectResult">Результат (продукт) *</label>
+            <button class="mini-ai js-open-ai" type="button" data-field-id="projectResult" data-field-name="Результат (продукт)">✦ AI</button>
+          </div>
+          <textarea class="textarea" id="projectResult" placeholder="Опишите, что должна создать команда проекта..."></textarea>
+          <div class="counter" id="count-projectResult"></div>
+          <div class="field-error" id="error-projectResult"></div>
+        </div>
+
+        <div class="field">
+          <div class="field-head">
+            <label class="label" for="projectCriteria">Критерии приемки результата *</label>
+            <button class="mini-ai js-open-ai" type="button" data-field-id="projectCriteria" data-field-name="Критерии приемки результата">✦ AI</button>
+          </div>
+          <textarea class="textarea" id="projectCriteria" placeholder="Укажите измеримые критерии..."></textarea>
+          <div class="counter" id="count-projectCriteria"></div>
+          <div class="field-error" id="error-projectCriteria"></div>
+        </div>
+
+        <div class="field">
+          <div class="field-head">
+            <label class="label" for="projectDescription">Описание проекта *</label>
+            <button class="mini-ai js-open-ai" type="button" data-field-id="projectDescription" data-field-name="Описание проекта">✦ AI</button>
+          </div>
+          <textarea class="textarea" id="projectDescription" placeholder="Опишите особенности проекта, технологии, способ реализации..."></textarea>
+          <div class="counter" id="count-projectDescription"></div>
+          <div class="field-error" id="error-projectDescription"></div>
+        </div>
+
+        <div class="submit-row">
+          <button class="submit-btn" id="submitProjectButton" type="submit">Отправить заявку</button>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <div class="overlay" id="overlay"></div>
+  <section class="drawer" id="drawer">
+    <div class="left">
+      <div class="brand"><div class="star">✦</div><div>AI Ассистент</div></div>
+      <div class="list" id="fieldList">
+        <button type="button" data-target="projectGoal">Цель проекта</button>
+        <button type="button" data-target="projectResult">Результат (продукт)</button>
+        <button type="button" data-target="projectCriteria">Критерии приемки</button>
+        <button type="button" data-target="projectDescription">Описание проекта</button>
+      </div>
+    </div>
+    <div class="right">
+      <header class="ai-head">
+        <div>
+          <h3>AI помощник</h3>
+          <p id="activeField">Текущее поле: не выбрано</p>
+        </div>
+        <button class="close" id="closeDrawer" type="button">Закрыть</button>
+      </header>
+      <div class="quick" id="quick">
+        <button type="button" data-action="generate">Сгенерировать</button>
+        <button type="button" data-action="improve">Улучшить текст</button>
+        <button type="button" data-action="regenerate">Перегенерировать</button>
+      </div>
+      <div class="chat" id="chat"></div>
+      <div class="status" id="status"></div>
+      <div id="errorWrap"></div>
+
+      <div class="preview" id="previewBox">Предпросмотр ответа появится здесь.</div>
+      <div class="insert-row">
+        <select class="insert-mode" id="insertMode">
+          <option value="replace">Заменить поле</option>
+          <option value="append">Добавить в конец</option>
+        </select>
+        <button class="insert" id="insertButton" type="button">Вставить в форму</button>
+        <button class="insert" id="undoInsertButton" type="button">Отменить вставку</button>
+      </div>
+
+      <form class="row" id="chatForm">
+        <input id="chatInput" type="text" autocomplete="off" placeholder="Например: напиши цель проекта для экологического сервиса..." />
+        <button class="voice" id="voiceButton" type="button" title="Голосовой ввод">🎤</button>
+        <button class="send" id="sendButton" type="submit">Отправить</button>
+      </form>
+    </div>
+  </section>
+
+  <script>
+    const CHAT_STORAGE_KEY = "assistant-chat-history";
+    const DRAFT_STORAGE_KEY = "project-form-draft";
+    const DRAFT_SAVE_DEBOUNCE_MS = 600;
+    const REQUEST_TIMEOUT_MS = 15000;
+
+    const FIELD_CONFIG = {
+      projectName: { label: "Название проекта", required: true, min: 6, max: 120 },
+      semester: { label: "Семестр реализации", required: true, min: 3, max: 50 },
+      projectGoal: { label: "Цель", required: true, min: 20, max: 1200 },
+      projectResult: { label: "Результат (продукт)", required: true, min: 20, max: 1200 },
+      projectCriteria: { label: "Критерии приемки результата", required: true, min: 20, max: 1200 },
+      projectDescription: { label: "Описание проекта", required: true, min: 30, max: 2000 }
+    };
+
+    const DEFAULT_FORM = Object.keys(FIELD_CONFIG).reduce((acc, key) => ({ ...acc, [key]: "" }), {});
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = SpeechRecognition ? new SpeechRecognition() : null;
+
+    const state = {
+      form: loadDraft(),
+      errors: {},
+      touched: {},
+      draftDirty: false,
+      lastSavedAt: null,
+      draftSaveTimer: null,
+      messages: loadMessages(),
+      currentInput: "",
+      isLoading: false,
+      isListening: false,
+      error: "",
+      activeFieldId: "",
+      lastAiResponse: "",
+      lastInsertion: null
+    };
+
+    const formFields = {};
+    Object.keys(FIELD_CONFIG).forEach((id) => {
+      formFields[id] = document.getElementById(id);
+    });
+
+    const projectForm = document.getElementById("projectForm");
+    const submitProjectButton = document.getElementById("submitProjectButton");
+    const draftStatus = document.getElementById("draftStatus");
+    const resetDraftButton = document.getElementById("resetDraftButton");
+    const drawer = document.getElementById("drawer");
+    const overlay = document.getElementById("overlay");
+    const closeDrawerButton = document.getElementById("closeDrawer");
+    const chat = document.getElementById("chat");
+    const chatForm = document.getElementById("chatForm");
+    const chatInput = document.getElementById("chatInput");
+    const voiceButton = document.getElementById("voiceButton");
+    const sendButton = document.getElementById("sendButton");
+    const status = document.getElementById("status");
+    const errorWrap = document.getElementById("errorWrap");
+    const quick = document.getElementById("quick");
+    const activeField = document.getElementById("activeField");
+    const insertMode = document.getElementById("insertMode");
+    const insertButton = document.getElementById("insertButton");
+    const undoInsertButton = document.getElementById("undoInsertButton");
+    const previewBox = document.getElementById("previewBox");
+    const fieldList = document.getElementById("fieldList");
+
+    if (recognition) {
+      recognition.lang = "ru-RU";
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.onstart = () => {
+        state.isListening = true;
+        state.error = "";
+        renderControls();
+      };
+      recognition.onend = () => {
+        state.isListening = false;
+        renderControls();
+      };
+      recognition.onerror = (event) => {
+        state.isListening = false;
+        state.error = `Ошибка голосового ввода: ${event.error}`;
+        renderControls();
+      };
+      recognition.onresult = (event) => {
+        const text = event.results?.[0]?.[0]?.transcript || "";
+        if (text) {
+          state.currentInput = `${state.currentInput} ${text}`.trim();
+          renderControls();
+        }
+      };
+    }
+
+    function loadMessages() {
+      try {
+        const raw = localStorage.getItem(CHAT_STORAGE_KEY);
+        if (!raw) return [{ role: "ai", text: "Привет! Выбери поле и напиши, что нужно сгенерировать." }];
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length) return parsed;
+      } catch (_error) {}
+      return [{ role: "ai", text: "Привет! Выбери поле и напиши, что нужно сгенерировать." }];
+    }
+
+    function loadDraft() {
+      try {
+        const raw = localStorage.getItem(DRAFT_STORAGE_KEY);
+        if (!raw) return { ...DEFAULT_FORM };
+        const parsed = JSON.parse(raw);
+        return { ...DEFAULT_FORM, ...parsed };
+      } catch (_error) {
+        return { ...DEFAULT_FORM };
+      }
+    }
+
+    function saveMessages() {
+      localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(state.messages));
+    }
+
+    function saveDraft() {
+      localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(state.form));
+      state.lastSavedAt = new Date();
+      state.draftDirty = false;
+      renderDraftStatus();
+    }
+
+    function scheduleDraftSave() {
+      state.draftDirty = true;
+      renderDraftStatus();
+      if (state.draftSaveTimer) clearTimeout(state.draftSaveTimer);
+      state.draftSaveTimer = setTimeout(() => {
+        saveDraft();
+      }, DRAFT_SAVE_DEBOUNCE_MS);
+    }
+
+    function resetDraft() {
+      if (!confirm("Удалить черновик и очистить форму?")) return;
+      state.form = { ...DEFAULT_FORM };
+      state.errors = {};
+      state.touched = {};
+      state.lastInsertion = null;
+      localStorage.removeItem(DRAFT_STORAGE_KEY);
+      state.lastSavedAt = null;
+      state.draftDirty = false;
+      renderForm();
+      renderDraftStatus();
+    }
+
+    function escapeHtml(text) {
+      return text
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    function validateField(fieldId, value) {
+      const rule = FIELD_CONFIG[fieldId];
+      const trimmed = value.trim();
+      if (rule.required && !trimmed) return "Поле обязательно для заполнения.";
+      if (trimmed && trimmed.length < rule.min) return `Минимум ${rule.min} символов.`;
+      if (trimmed.length > rule.max) return `Максимум ${rule.max} символов.`;
+      return "";
+    }
+
+    function validateAllFields() {
+      let valid = true;
+      Object.keys(FIELD_CONFIG).forEach((fieldId) => {
+        const message = validateField(fieldId, state.form[fieldId]);
+        state.errors[fieldId] = message;
+        state.touched[fieldId] = true;
+        if (message) valid = false;
+      });
+      return valid;
+    }
+
+    function renderField(fieldId) {
+      const input = formFields[fieldId];
+      const counter = document.getElementById(`count-${fieldId}`);
+      const error = document.getElementById(`error-${fieldId}`);
+      const cfg = FIELD_CONFIG[fieldId];
+      const value = state.form[fieldId] || "";
+      input.value = value;
+      input.classList.toggle("invalid", Boolean(state.errors[fieldId] && state.touched[fieldId]));
+      counter.textContent = `${value.trim().length}/${cfg.max}`;
+      error.textContent = state.touched[fieldId] ? (state.errors[fieldId] || "") : "";
+    }
+
+    function renderForm() {
+      Object.keys(FIELD_CONFIG).forEach((fieldId) => {
+        renderField(fieldId);
+      });
+    }
+
+    function renderDraftStatus() {
+      if (state.draftDirty) {
+        draftStatus.textContent = "Есть несохраненные изменения...";
+        return;
+      }
+      if (state.lastSavedAt) {
+        draftStatus.textContent = `Черновик сохранен: ${state.lastSavedAt.toLocaleTimeString()}`;
+        return;
+      }
+      draftStatus.textContent = "Черновик загружен.";
+    }
+
+    function openDrawer() {
+      drawer.classList.add("open");
+      overlay.classList.add("open");
+      chatInput.focus();
+    }
+
+    function hideDrawer() {
+      drawer.classList.remove("open");
+      overlay.classList.remove("open");
+      if (state.isListening && recognition) recognition.stop();
+    }
+
+    function setActiveField(fieldId, fieldName) {
+      state.activeFieldId = fieldId;
+      activeField.textContent = `Текущее поле: ${fieldName}`;
+    }
+
+    function getLastAiMessage() {
+      for (let i = state.messages.length - 1; i >= 0; i -= 1) {
+        if (state.messages[i].role === "ai") return state.messages[i].text;
+      }
+      return "";
+    }
+
+    function insertLastMessage() {
+      if (!state.activeFieldId) {
+        state.error = "Сначала выберите поле для вставки.";
+        renderControls();
+        return;
+      }
+
+      const text = state.lastAiResponse || getLastAiMessage();
+      if (!text) {
+        state.error = "Нет ответа AI для вставки.";
+        renderControls();
+        return;
+      }
+
+      const fieldId = state.activeFieldId;
+      const prev = state.form[fieldId];
+      state.lastInsertion = { fieldId, previousValue: prev };
+
+      if (insertMode.value === "append" && prev.trim()) {
+        state.form[fieldId] = `${prev}\n\n${text}`;
+      } else {
+        state.form[fieldId] = text;
+      }
+
+      state.errors[fieldId] = validateField(fieldId, state.form[fieldId]);
+      state.touched[fieldId] = true;
+      scheduleDraftSave();
+      renderField(fieldId);
+      state.error = "";
+      renderControls();
+      formFields[fieldId].focus();
+    }
+
+    function undoLastInsertion() {
+      if (!state.lastInsertion) {
+        state.error = "Нечего отменять.";
+        renderControls();
+        return;
+      }
+      const { fieldId, previousValue } = state.lastInsertion;
+      state.form[fieldId] = previousValue;
+      state.errors[fieldId] = validateField(fieldId, previousValue);
+      state.touched[fieldId] = true;
+      state.lastInsertion = null;
+      scheduleDraftSave();
+      renderField(fieldId);
+      state.error = "";
+      renderControls();
+    }
+
+    function toggleVoice() {
+      if (!recognition) {
+        state.error = "Голосовой ввод не поддерживается в этом браузере.";
+        renderControls();
+        return;
+      }
+      if (state.isListening) {
+        recognition.stop();
+        return;
+      }
+      try {
+        recognition.start();
+      } catch (_error) {
+        state.error = "Не удалось запустить микрофон. Разрешите доступ к микрофону.";
+        renderControls();
+      }
+    }
+
+    function buildPromptByAction(action) {
+      const fieldId = state.activeFieldId;
+      if (!fieldId) return "";
+      const fieldName = FIELD_CONFIG[fieldId].label;
+      const currentText = state.form[fieldId].trim();
+
+      if (action === "improve") {
+        return currentText
+          ? `Улучши текст для поля "${fieldName}". Текущий текст:\n${currentText}`
+          : `Сгенерируй качественный текст для поля "${fieldName}" в деловом стиле.`;
+      }
+      if (action === "regenerate") {
+        return `Сгенерируй новый альтернативный вариант для поля "${fieldName}" без повторов предыдущих формулировок.`;
+      }
+      return `Сгенерируй текст для поля "${fieldName}" в деловом стиле.`;
+    }
+
+    let prevSnapshot = "";
+    function renderMessages() {
+      const snapshot = JSON.stringify(state.messages);
+      if (snapshot === prevSnapshot) return;
+      prevSnapshot = snapshot;
+      chat.innerHTML = state.messages
+        .map((m) => `<div class="msg ${m.role === "user" ? "user" : "ai"}">${escapeHtml(m.text)}</div>`)
+        .join("");
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function renderControls() {
+      chatInput.value = state.currentInput;
+      chatInput.disabled = state.isLoading;
+      sendButton.disabled = state.isLoading || !state.currentInput.trim();
+      insertButton.disabled = state.isLoading;
+      undoInsertButton.disabled = state.isLoading || !state.lastInsertion;
+      voiceButton.disabled = state.isLoading;
+      voiceButton.classList.toggle("listening", state.isListening);
+      quick.querySelectorAll("button").forEach((button) => {
+        button.disabled = state.isLoading;
+      });
+      if (state.isLoading) status.innerHTML = "<strong>ИИ думает...</strong>";
+      else if (state.isListening) status.innerHTML = "<strong>Слушаю вас...</strong>";
+      else status.textContent = "Готово к новому запросу.";
+      errorWrap.innerHTML = state.error ? `<div class="error">${escapeHtml(state.error)}</div>` : "";
+      previewBox.textContent = state.lastAiResponse || "Предпросмотр ответа появится здесь.";
+    }
+
+    function render() {
+      renderMessages();
+      renderControls();
+      renderForm();
+      renderDraftStatus();
+    }
+
+    function pushMessage(role, text) {
+      state.messages.push({ role, text });
+      saveMessages();
+      renderMessages();
+    }
+
+    function formatAssistantText(payload) {
+      if (!payload || typeof payload !== "object") return "Ответ получен, но формат данных не распознан.";
+      if (typeof payload.answer === "string" && payload.answer.trim()) return payload.answer.trim();
+      const parts = [];
+      if (payload.title) parts.push(`Название: ${payload.title}`);
+      if (payload.description) parts.push(`Описание: ${payload.description}`);
+      if (payload.goals) parts.push(`Цели: ${payload.goals}`);
+      return parts.length ? parts.join("\n\n") : "Ответ получен, но полезный текст отсутствует.";
+    }
+
+    async function fetchWithTimeout(url, options, timeoutMs) {
+      const controller = new AbortController();
+      const timerId = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const response = await fetch(url, { ...options, signal: controller.signal });
+        return response;
+      } finally {
+        clearTimeout(timerId);
+      }
+    }
+
+    async function requestAssistantReply(prompt) {
+      const payload = {
+        idea: prompt,
+        field: state.activeFieldId,
+        mode: "assist"
+      };
+
+      let lastError = null;
+      for (let attempt = 1; attempt <= 2; attempt += 1) {
+        try {
+          const response = await fetchWithTimeout(
+            "/generate",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload)
+            },
+            REQUEST_TIMEOUT_MS
+          );
+
+          if (!response.ok) {
+            if (response.status >= 500 && attempt < 2) continue;
+            throw new Error(`Ошибка сервера: ${response.status}`);
+          }
+
+          const data = await response.json();
+          return formatAssistantText(data);
+        } catch (error) {
+          lastError = error;
+          if (attempt >= 2) throw lastError;
+        }
+      }
+      throw lastError || new Error("Неизвестная ошибка");
+    }
+
+    async function submitPrompt(prompt) {
+      const userText = prompt.trim();
+      if (!userText || state.isLoading) return;
+      if (!state.activeFieldId) {
+        state.error = "Сначала выберите поле для генерации.";
+        renderControls();
+        return;
+      }
+
+      state.currentInput = "";
+      state.error = "";
+      state.isLoading = true;
+      pushMessage("user", userText);
+      renderControls();
+
+      try {
+        const aiText = await requestAssistantReply(userText);
+        state.lastAiResponse = aiText;
+        pushMessage("ai", aiText);
+      } catch (_error) {
+        state.error = "Не удалось получить ответ с backend. Проверь `/generate`.";
+        pushMessage("ai", "Извините, сейчас не получилось обработать запрос. Попробуйте еще раз.");
+      } finally {
+        state.isLoading = false;
+        renderControls();
+        chatInput.focus();
+      }
+    }
+
+    function onFormFieldInput(fieldId, value) {
+      state.form[fieldId] = value;
+      state.touched[fieldId] = true;
+      state.errors[fieldId] = validateField(fieldId, value);
+      scheduleDraftSave();
+      renderField(fieldId);
+    }
+
+    function submitProjectForm(event) {
+      event.preventDefault();
+      const isValid = validateAllFields();
+      renderForm();
+      if (!isValid) {
+        state.error = "Форма содержит ошибки. Проверьте обязательные поля.";
+        renderControls();
+        return;
+      }
+      state.error = "";
+      renderControls();
+      alert("Форма прошла базовую валидацию и готова к отправке.");
+    }
+
+    closeDrawerButton.addEventListener("click", hideDrawer);
+    overlay.addEventListener("click", hideDrawer);
+    resetDraftButton.addEventListener("click", resetDraft);
+    projectForm.addEventListener("submit", submitProjectForm);
+
+    Object.keys(FIELD_CONFIG).forEach((fieldId) => {
+      formFields[fieldId].addEventListener("input", (event) => {
+        onFormFieldInput(fieldId, event.target.value);
+      });
+    });
+
+    document.querySelectorAll(".js-open-ai").forEach((button) => {
+      button.addEventListener("click", () => {
+        const fieldId = button.dataset.fieldId || "";
+        const fieldName = button.dataset.fieldName || "неизвестное поле";
+        setActiveField(fieldId, fieldName);
+        state.currentInput = `Помоги заполнить поле "${fieldName}".`;
+        openDrawer();
+        renderControls();
+      });
+    });
+
+    fieldList.addEventListener("click", (event) => {
+      const targetButton = event.target.closest("button");
+      if (!targetButton) return;
+      const fieldId = targetButton.dataset.target || "";
+      const fieldElement = formFields[fieldId];
+      if (!fieldElement) return;
+      setActiveField(fieldId, FIELD_CONFIG[fieldId].label);
+      fieldElement.scrollIntoView({ behavior: "smooth", block: "center" });
+      fieldElement.focus();
+      openDrawer();
+    });
+
+    chatInput.addEventListener("input", (event) => {
+      state.currentInput = event.target.value;
+      renderControls();
+    });
+    voiceButton.addEventListener("click", toggleVoice);
+    chatForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      submitPrompt(state.currentInput);
+    });
+
+    quick.addEventListener("click", (event) => {
+      const button = event.target.closest("button");
+      if (!button || state.isLoading) return;
+      const action = button.dataset.action || "generate";
+      const prompt = buildPromptByAction(action);
+      if (!prompt) {
+        state.error = "Сначала выберите поле справа или нажмите кнопку ✦ AI у поля.";
+        renderControls();
+        return;
+      }
+      state.currentInput = prompt;
+      renderControls();
+      chatInput.focus();
+    });
+
+    insertButton.addEventListener("click", insertLastMessage);
+    undoInsertButton.addEventListener("click", undoLastInsertion);
+
+    render();
+  </script>
+</body>
+</html><!--
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Assistant Popup</title>
+  <style>
+    :root{--text:#e9efff;--muted:#c7d5ff;--border:rgba(255,255,255,.24);--panel:linear-gradient(155deg,rgba(255,255,255,.16),rgba(255,255,255,.08));--field-bg:rgba(10,18,50,.42);--field-border:rgba(255,255,255,.22);--drawer:linear-gradient(150deg,#081129,#11234a 62%,#121b3b)}
+    *{box-sizing:border-box} body{margin:0;min-height:100vh;font-family:"Segoe UI",Arial,sans-serif;color:var(--text);background:linear-gradient(125deg,#0e0f25,#1b1d44 32%,#291152 66%,#101536);background-size:220% 220%;animation:bgShift 15s ease infinite}
+    .shell{width:min(1050px,100%);margin:0 auto;padding:24px 16px}.title{margin:0 0 18px;font-size:30px}.card{background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:18px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 24px 52px rgba(4,10,33,.45)}
+    .card h2{margin:0 0 8px}.section-note{margin:0 0 12px;color:var(--muted);font-size:14px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}.field{margin-bottom:12px}.field:last-child{margin-bottom:0}.field-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px}.label{font-size:14px;font-weight:600}.grid .label{display:block;margin-bottom:8px}
+    .input,.textarea{width:100%;border:1px solid var(--field-border);border-radius:12px;padding:10px 11px;background:var(--field-bg);color:#f2f6ff;outline:none;font-family:inherit}.input::placeholder,.textarea::placeholder{color:#b3c2ec}.textarea{min-height:95px;resize:vertical}
+    .mini-ai{border:none;border-radius:999px;padding:7px 12px;font-size:12px;font-weight:700;color:#fff;cursor:pointer;background:linear-gradient(120deg,#7d53ff,#20b7ff,#6f8dff,#ff6fe7);background-size:280% 280%;animation:flowGradient 6s ease infinite}
+    .overlay{position:fixed;inset:0;background:rgba(5,12,28,.45);opacity:0;pointer-events:none;transition:.25s;z-index:30}.overlay.open{opacity:1;pointer-events:all}
+    .drawer{position:fixed;right:0;top:0;height:100vh;width:min(680px,100vw);z-index:31;transform:translateX(102%);transition:transform .3s ease;background:var(--drawer);border-left:1px solid rgba(255,255,255,.13);box-shadow:-16px 0 34px rgba(0,8,21,.45);display:grid;grid-template-columns:210px 1fr}.drawer.open{transform:translateX(0)}
+    .left{border-right:1px solid rgba(255,255,255,.12);padding:14px 10px}.brand{display:flex;align-items:center;gap:8px;font-weight:700;margin-bottom:12px}.star{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 32% 32%,#ffe98a,#e08dff 45%,#6f83ff 80%)}
+    .list{display:grid;gap:7px}.list button{border:1px solid rgba(255,255,255,.15);border-radius:9px;background:rgba(255,255,255,.05);color:#deebff;text-align:left;font-size:12px;padding:8px;cursor:pointer}
+    .right{display:grid;grid-template-rows:auto auto 1fr auto auto;min-width:0}.ai-head{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,.12);padding:12px 14px 8px}.ai-head h3{margin:0;font-size:16px}.ai-head p{margin:4px 0 0;color:#abc1eb;font-size:12px}
+    .close{border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.05);color:#d3e1ff;border-radius:8px;padding:6px 9px;cursor:pointer}.quick{display:flex;gap:7px;flex-wrap:wrap;border-bottom:1px solid rgba(255,255,255,.12);padding:8px 14px}.quick button{border:1px solid rgba(255,255,255,.2);border-radius:999px;background:rgba(255,255,255,.08);color:#e0ebff;padding:6px 10px;font-size:12px;cursor:pointer}
+    .chat{overflow-y:auto;padding:10px 14px;display:flex;flex-direction:column;gap:9px}.msg{max-width:88%;border-radius:14px;padding:8px 10px;font-size:13px;line-height:1.4;white-space:pre-wrap;word-break:break-word}.msg.user{margin-left:auto;background:linear-gradient(135deg,#4565ff,#6a58ff);color:#fff;border-bottom-right-radius:6px}.msg.ai{margin-right:auto;background:rgba(255,255,255,.12);color:#f0f5ff;border:1px solid rgba(255,255,255,.16);border-bottom-left-radius:6px}
+    .status{min-height:20px;color:#a7bce3;font-size:12px;padding:0 14px 4px}.error{margin:0 14px 8px;font-size:12px;padding:8px 9px;border-radius:8px;color:#ffd7e2;border:1px solid rgba(255,163,185,.45);background:rgba(255,95,137,.2)}
+    .row{display:grid;grid-template-columns:1fr auto auto;gap:8px;padding:9px 14px 10px;border-top:1px solid rgba(255,255,255,.12)}.row input{border:1px solid rgba(255,255,255,.24);border-radius:10px;background:rgba(255,255,255,.08);color:#eef3ff;padding:9px 10px;font-size:13px;outline:none}
+    .send{border:none;border-radius:10px;color:#fff;font-weight:600;padding:9px 11px;cursor:pointer;background:linear-gradient(120deg,#6674ff,#4fa2ff)}
+    .voice{border:1px solid rgba(167,197,255,.65);border-radius:50%;color:#edf3ff;cursor:pointer;background:linear-gradient(135deg,rgba(129,94,255,.5),rgba(54,186,255,.5));width:42px;height:42px;min-width:42px;display:grid;place-items:center;font-size:16px;line-height:1;box-shadow:0 0 0 2px rgba(129,153,255,.18),0 8px 18px rgba(67,108,255,.35);transition:transform .2s ease,filter .2s ease,box-shadow .2s ease}
+    .voice:hover:not(:disabled){transform:translateY(-1px);filter:brightness(1.08);box-shadow:0 0 0 2px rgba(138,171,255,.3),0 10px 22px rgba(67,108,255,.45)}
+    .voice.listening{background:linear-gradient(135deg,rgba(255,109,166,.55),rgba(255,156,90,.45));border-color:rgba(255,192,213,.82);color:#ffe8f1;box-shadow:0 0 0 2px rgba(255,164,196,.25),0 0 18px rgba(255,136,179,.5);animation:micPulse 1.1s ease-in-out infinite}
+    .insert{margin:0 0 12px 14px;width:fit-content;border:1px solid rgba(255,255,255,.2);border-radius:999px;padding:7px 10px;background:rgba(255,255,255,.08);color:#e8f0ff;cursor:pointer;font-size:12px}
+    .send:disabled,.voice:disabled,.insert:disabled,.quick button:disabled,.row input:disabled{opacity:.55;cursor:not-allowed}
+    @keyframes flowGradient{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}} @keyframes bgShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}} @keyframes micPulse{0%{box-shadow:0 0 0 2px rgba(255,164,196,.2),0 0 10px rgba(255,136,179,.45)}70%{box-shadow:0 0 0 8px rgba(255,164,196,.05),0 0 18px rgba(255,136,179,.65)}100%{box-shadow:0 0 0 2px rgba(255,164,196,.2),0 0 10px rgba(255,136,179,.45)}}
+    @media (max-width:900px){.grid{grid-template-columns:1fr}.drawer{width:100vw;grid-template-columns:160px 1fr}}
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <h1 class="title">Заполните заявку на проект</h1>
+    <section class="card">
+      <h2>Описание проекта</h2>
+      <p class="section-note">Заполните основную информацию о проекте.</p>
+      <div class="grid">
+        <div class="field"><label class="label" for="projectName">Название проекта</label><input class="input" id="projectName" placeholder="Напишите название проекта" /></div>
+        <div class="field"><label class="label" for="semester">Семестр реализации</label><input class="input" id="semester" placeholder="Укажите период реализации" /></div>
+      </div>
+      <div class="field"><div class="field-head"><label class="label" for="projectGoal">Цель</label><button class="mini-ai js-open-ai" data-field-id="projectGoal" data-field-name="Цель">✦ AI</button></div><textarea class="textarea" id="projectGoal" placeholder="Опишите, что должно быть достигнуто..."></textarea></div>
+      <div class="field"><div class="field-head"><label class="label" for="projectResult">Результат (продукт)</label><button class="mini-ai js-open-ai" data-field-id="projectResult" data-field-name="Результат (продукт)">✦ AI</button></div><textarea class="textarea" id="projectResult" placeholder="Опишите, что должна создать команда проекта..."></textarea></div>
+      <div class="field"><div class="field-head"><label class="label" for="projectCriteria">Критерии приемки результата</label><button class="mini-ai js-open-ai" data-field-id="projectCriteria" data-field-name="Критерии приемки результата">✦ AI</button></div><textarea class="textarea" id="projectCriteria" placeholder="Укажите измеримые критерии..."></textarea></div>
+      <div class="field"><div class="field-head"><label class="label" for="projectDescription">Описание проекта</label><button class="mini-ai js-open-ai" data-field-id="projectDescription" data-field-name="Описание проекта">✦ AI</button></div><textarea class="textarea" id="projectDescription" placeholder="Опишите особенности проекта, технологии, способ реализации..."></textarea></div>
+    </section>
+  </main>
+
+  <div class="overlay" id="overlay"></div>
+  <section class="drawer" id="drawer">
+    <div class="left">
+      <div class="brand"><div class="star">✦</div><div>AI Ассистент</div></div>
+      <div class="list" id="fieldList">
+        <button type="button" data-target="projectGoal">Цель проекта</button>
+        <button type="button" data-target="projectResult">Результат (продукт)</button>
+        <button type="button" data-target="projectCriteria">Критерии приемки</button>
+        <button type="button" data-target="projectDescription">Описание проекта</button>
+      </div>
+    </div>
+    <div class="right">
+      <header class="ai-head"><div><h3>AI помощник</h3><p id="activeField">Текущее поле: не выбрано</p></div><button class="close" id="closeDrawer">Закрыть</button></header>
+      <div class="quick" id="quick">
+        <button type="button" data-prompt="Сгенерируй цель проекта в деловом стиле.">Сгенерировать цель</button>
+        <button type="button" data-prompt="Напиши 3 измеримых критерия приемки.">Критерии приемки</button>
+        <button type="button" data-prompt="Сделай краткое описание проекта на 3-4 предложения.">Описание проекта</button>
+      </div>
+      <div class="chat" id="chat"></div><div class="status" id="status"></div><div id="errorWrap"></div>
+      <form class="row" id="chatForm"><input id="chatInput" type="text" autocomplete="off" placeholder="Например: напиши цель проекта для экологического сервиса..." /><button class="voice" id="voiceButton" type="button" title="Голосовой ввод">🎤</button><button class="send" id="sendButton" type="submit">Отправить</button></form>
+      <button class="insert" id="insertButton" type="button">Вставить последний ответ в активное поле</button>
+    </div>
+  </section>
+
+  <script>
+    const STORAGE_KEY = "assistant-chat-history";
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = SpeechRecognition ? new SpeechRecognition() : null;
+    const state = { messages: loadMessages(), currentInput: "", isLoading: false, isListening: false, error: "", activeFieldId: "" };
+
+    const drawer = document.getElementById("drawer");
+    const overlay = document.getElementById("overlay");
+    const closeDrawerButton = document.getElementById("closeDrawer");
+    const chat = document.getElementById("chat");
+    const chatForm = document.getElementById("chatForm");
+    const chatInput = document.getElementById("chatInput");
+    const voiceButton = document.getElementById("voiceButton");
+    const sendButton = document.getElementById("sendButton");
+    const status = document.getElementById("status");
+    const errorWrap = document.getElementById("errorWrap");
+    const quick = document.getElementById("quick");
+    const activeField = document.getElementById("activeField");
+    const insertButton = document.getElementById("insertButton");
+    const fieldList = document.getElementById("fieldList");
+
+    if (recognition) {
+      recognition.lang = "ru-RU";
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.onstart = () => { state.isListening = true; state.error = ""; renderControls(); };
+      recognition.onend = () => { state.isListening = false; renderControls(); };
+      recognition.onerror = (event) => { state.isListening = false; state.error = `Ошибка голосового ввода: ${event.error}`; renderControls(); };
+      recognition.onresult = (event) => {
+        const text = event.results?.[0]?.[0]?.transcript || "";
+        if (text) { state.currentInput = `${state.currentInput} ${text}`.trim(); renderControls(); }
+      };
+    }
+
+    function loadMessages() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return [{ role: "ai", text: "Привет! Выбери поле и напиши, что нужно сгенерировать." }];
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length) return parsed;
+      } catch (_error) {}
+      return [{ role: "ai", text: "Привет! Выбери поле и напиши, что нужно сгенерировать." }];
+    }
+
+    function saveMessages() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state.messages)); }
+    function escapeHtml(text) { return text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;"); }
+    function openDrawer() { drawer.classList.add("open"); overlay.classList.add("open"); chatInput.focus(); }
+    function hideDrawer() { drawer.classList.remove("open"); overlay.classList.remove("open"); if (state.isListening && recognition) recognition.stop(); }
+    function setActiveField(fieldId, fieldName) { state.activeFieldId = fieldId; activeField.textContent = `Текущее поле: ${fieldName}`; }
+    function getLastAiMessage() { for (let i = state.messages.length - 1; i >= 0; i -= 1) if (state.messages[i].role === "ai") return state.messages[i].text; return ""; }
+
+    function insertLastMessage() {
+      if (!state.activeFieldId) { state.error = "Сначала выберите поле для вставки."; renderControls(); return; }
+      const target = document.getElementById(state.activeFieldId);
+      const text = getLastAiMessage();
+      if (!target || !text) { state.error = "Нет ответа AI для вставки."; renderControls(); return; }
+      target.value = text;
+      target.focus();
+      state.error = "";
+      renderControls();
+    }
+
+    function toggleVoice() {
+      if (!recognition) { state.error = "Голосовой ввод не поддерживается в этом браузере."; renderControls(); return; }
+      if (state.isListening) { recognition.stop(); return; }
+      try { recognition.start(); } catch (_error) { state.error = "Не удалось запустить микрофон. Разрешите доступ к микрофону."; renderControls(); }
+    }
+
+    let prevSnapshot = "";
+    function renderMessages() {
+      const snapshot = JSON.stringify(state.messages);
+      if (snapshot === prevSnapshot) return;
+      prevSnapshot = snapshot;
+      chat.innerHTML = state.messages.map((m) => `<div class="msg ${m.role === "user" ? "user" : "ai"}">${escapeHtml(m.text)}</div>`).join("");
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function renderControls() {
+      chatInput.value = state.currentInput;
+      chatInput.disabled = state.isLoading;
+      sendButton.disabled = state.isLoading || !state.currentInput.trim();
+      insertButton.disabled = state.isLoading;
+      voiceButton.disabled = state.isLoading;
+      voiceButton.classList.toggle("listening", state.isListening);
+      quick.querySelectorAll("button").forEach((button) => { button.disabled = state.isLoading; });
+      if (state.isLoading) status.innerHTML = "<strong>ИИ думает...</strong>";
+      else if (state.isListening) status.innerHTML = "<strong>Слушаю вас...</strong>";
+      else status.textContent = "Готово к новому запросу.";
+      errorWrap.innerHTML = state.error ? `<div class="error">${escapeHtml(state.error)}</div>` : "";
+    }
+
+    function render() { renderMessages(); renderControls(); }
+    function pushMessage(role, text) { state.messages.push({ role, text }); saveMessages(); render(); }
+
+    function formatAssistantText(payload) {
+      if (!payload || typeof payload !== "object") return "Ответ получен, но формат данных не распознан.";
+      if (typeof payload.answer === "string" && payload.answer.trim()) return payload.answer.trim();
+      const parts = [];
+      if (payload.title) parts.push(`Название: ${payload.title}`);
+      if (payload.description) parts.push(`Описание: ${payload.description}`);
+      if (payload.goals) parts.push(`Цели: ${payload.goals}`);
+      return parts.length ? parts.join("\n\n") : "Ответ получен, но полезный текст отсутствует.";
+    }
+
+    async function requestAssistantReply(idea) {
+      const response = await fetch("/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ idea }) });
+      if (!response.ok) throw new Error(`Ошибка сервера: ${response.status}`);
+      return formatAssistantText(await response.json());
+    }
+
+    async function submitPrompt(prompt) {
+      const userText = prompt.trim();
+      if (!userText || state.isLoading) return;
+      state.currentInput = "";
+      state.error = "";
+      state.isLoading = true;
+      pushMessage("user", userText);
+      render();
+      try { pushMessage("ai", await requestAssistantReply(userText)); }
+      catch (_error) {
+        state.error = "Не удалось получить ответ с backend. Проверь `/generate`.";
+        pushMessage("ai", "Извините, сейчас не получилось обработать запрос. Попробуйте еще раз.");
+      } finally {
+        state.isLoading = false;
+        render();
+        chatInput.focus();
+      }
+    }
+
+    closeDrawerButton.addEventListener("click", hideDrawer);
+    overlay.addEventListener("click", hideDrawer);
+
+    document.querySelectorAll(".js-open-ai").forEach((button) => {
+      button.addEventListener("click", () => {
+        const fieldId = button.dataset.fieldId || "";
+        const fieldName = button.dataset.fieldName || "неизвестное поле";
+        setActiveField(fieldId, fieldName);
+        state.currentInput = `Помоги заполнить поле "${fieldName}".`;
+        openDrawer();
+        renderControls();
+      });
+    });
+
+    fieldList.addEventListener("click", (event) => {
+      const targetButton = event.target.closest("button");
+      if (!targetButton) return;
+      const fieldId = targetButton.dataset.target || "";
+      const fieldElement = document.getElementById(fieldId);
+      if (!fieldElement) return;
+      const fieldName = fieldElement.parentElement.querySelector(".label")?.textContent || fieldId;
+      setActiveField(fieldId, fieldName);
+      fieldElement.scrollIntoView({ behavior: "smooth", block: "center" });
+      fieldElement.focus();
+    });
+
+    chatInput.addEventListener("input", (event) => { state.currentInput = event.target.value; renderControls(); });
+    voiceButton.addEventListener("click", toggleVoice);
+    chatForm.addEventListener("submit", (event) => { event.preventDefault(); submitPrompt(state.currentInput); });
+    quick.addEventListener("click", (event) => {
+      const button = event.target.closest("button");
+      if (!button || state.isLoading) return;
+      state.currentInput = button.dataset.prompt || "";
+      renderControls();
+      chatInput.focus();
+    });
+    insertButton.addEventListener("click", insertLastMessage);
+
+    render();
+  </script>
+</body>
+</html>-->
