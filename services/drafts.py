@@ -1,7 +1,6 @@
 from typing import Dict, Optional
 from schemas import ApplicationData
 
-# В продакшене заменить на SQLAlchemy + PostgreSQL
 _drafts_db: Dict[str, ApplicationData] = {}
 
 def save_draft(user_id: str, data: ApplicationData) -> bool:
