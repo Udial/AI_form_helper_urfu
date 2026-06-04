@@ -18,21 +18,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ================= АВТОРИЗАЦИЯ =================
+# АВТОРИЗАЦИЯ
 @app.post(f"{settings.API_V1_PREFIX}/auth/login")
 async def login(username: str = Form(...)):
     """Упрощённый логин для демо. В продакшене здесь будет редирект на sso.urfu.ru"""
     token = create_access_token(user_id=username)
     return {"access_token": token, "token_type": "bearer"}
 
-# ================= AI АССИСТЕНТ =================
+# AI АССИСТЕНТ
 @app.post(f"{settings.API_V1_PREFIX}/ai/assist", response_model=AIResponse)
 async def ai_assist(request: AIRequest, user_id: str = Depends(get_current_user)):
     """Обработка кнопок: Сгенерировать, Улучшить текст, Перегенерировать"""
     ai_service = get_ai_service()
     return await ai_service.process_request(request)
 
-# ================= АУДИО (STT) =================
+# АУДИО (STT)
 @app.post(f"{settings.API_V1_PREFIX}/ai/transcribe", response_model=TranscribeResponse)
 async def transcribe(audio: UploadFile = File(...), user_id: str = Depends(get_current_user)):
     """Приём аудио с микрофона и возврат текста"""
@@ -45,7 +45,7 @@ async def transcribe(audio: UploadFile = File(...), user_id: str = Depends(get_c
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Ошибка распознавания: {str(e)}")
 
-# ================= ЧЕРНОВИКИ =================
+# ЧЕРНОВИКИ
 @app.post(f"{settings.API_V1_PREFIX}/drafts/save", response_model=DraftResponse)
 async def save_app_draft(data: ApplicationData, user_id: str = Depends(get_current_user)):
     save_draft(user_id, data)
@@ -63,7 +63,7 @@ async def clear_app_draft(user_id: str = Depends(get_current_user)):
     clear_draft(user_id)
     return DraftResponse(success=True, data=None, message="Черновик сброшен")
 
-# ================= ОТПРАВКА ЗАЯВКИ =================
+# ОТПРАВКА ЗАЯВКИ
 @app.post(f"{settings.API_V1_PREFIX}/applications/submit")
 async def submit_application(data: ApplicationData, user_id: str = Depends(get_current_user)):
     """

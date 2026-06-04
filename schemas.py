@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import Optional, Literal
 
-# --- AI Ассистент ---
+# AI Ассистент
 class AIRequest(BaseModel):
     idea: str = Field(..., min_length=5, description="Идея проекта от пользователя")
     field: Literal["goal", "result", "criteria", "description"] = Field(
@@ -18,12 +18,12 @@ class AIResponse(BaseModel):
     generated_text: str
     message: str
 
-# --- Аудио ---
+# Аудио
 class TranscribeResponse(BaseModel):
     success: bool
     text: str
 
-# --- Форма заявки ---
+# Форма заявки
 class ApplicationData(BaseModel):
     title: str = Field(..., description="Название проекта")
     semester: str = Field(..., description="Семестр реализации")
