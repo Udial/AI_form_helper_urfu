@@ -26,7 +26,6 @@ class TranscribeResponse(BaseModel):
 # Форма заявки
 class ApplicationData(BaseModel):
     title: str = Field(..., description="Название проекта")
-    semester: str = Field(..., description="Семестр реализации")
     goal: str = Field(..., description="Цель")
     result: str = Field(..., description="Результат (продукт)")
     criteria: str = Field(..., description="Критерии приемки")
