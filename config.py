@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     GIGACHAT_SCOPE: str = "GIGACHAT_API_PERS"
     
     # Безопасность
-    SECRET_KEY: str = "super-secret-key-change-in-production"
+    SECRET_KEY: str = "xK9mP2vL8nQ5wR3tY6uI0oA4sD7fG1hJ2kL5zX8cV3bN6mM9qW0eR4tY7uI1oP3"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
     
