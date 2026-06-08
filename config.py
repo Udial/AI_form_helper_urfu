@@ -8,8 +8,8 @@ class Settings(BaseSettings):
     AI_PROVIDER: str = "gigachat"
     
     # GigaChat Credentials
-    GIGACHAT_CLIENT_ID: str = ""
-    GIGACHAT_CLIENT_SECRET: str = ""
+    # Важно: сюда кладём Authorization data из кабинета GigaChat (base64), а не client secret.
+    GIGACHAT_CREDENTIALS: str = ""
     GIGACHAT_SCOPE: str = "GIGACHAT_API_PERS"
     
     # Безопасность
@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
     
     # CORS
-    CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://127.0.0.1:5500", "http://localhost:8000"]
+    CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:5500", "http://127.0.0.1:5500", "http://localhost:8000", "http://127.0.0.1:8000"]
 
     class Config:
         env_file = ".env"

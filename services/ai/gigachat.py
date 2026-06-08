@@ -4,25 +4,25 @@ from schemas import AIRequest, AIResponse
 
 
 class GigaChatService(AIService):
-    def __init__(self, client_id: str, client_secret: str, scope: str):
-        self.client_id = client_id
-        self.client_secret = client_secret
+    def __init__(self, credentials: str, scope: str):
+        self.credentials = credentials
         self.scope = scope
 
         self.client = GigaChat(
-            credentials=f"{client_id}:{client_secret}",
+            credentials=credentials,
             scope=scope,
             verify_ssl_certs=False
         )
 
-    def _build_prompt(self, field: str, action: str, idea: str) -> str:
+    def _build_prompt(self, field: str, action: str, idea: str, current_text: str | None = None) -> str:
         base_context = (
             "Ты помощник, который помогает студентам заполнять университетскую заявку на проект. "
             "Пиши в официально-деловом стиле. "
             "Верни только готовый текст для вставки в поле формы. "
             "Не добавляй пояснений, комментариев, заголовков, списков и вариантов ответа.\n\n"
             f"Идея проекта: {idea}\n"
-            f"Действие пользователя: {action}\n\n"
+            f"Действие пользователя: {action}\n"
+            f"Текущий текст поля: {current_text or ''}\n\n"
         )
 
         prompts = {
@@ -32,7 +32,7 @@ class GigaChatService(AIService):
                 "Сформулируй описание проекта в 2-4 связанных предложениях. "
                 "Опиши суть проекта, его назначение и общую идею реализации."
             ),
-            "goals": (
+            "goal": (
                 base_context +
                 "Нужно заполнить поле «Цели проекта». "
                 "Сформулируй цели проекта в 2-3 связанных предложениях. "
@@ -64,7 +64,8 @@ class GigaChatService(AIService):
             prompt = self._build_prompt(
                 field=request.field,
                 action=request.action,
-                idea=request.idea
+                idea=request.idea,
+                current_text=request.current_text
             )
 
             response = self.client.chat(prompt)
