@@ -538,8 +538,8 @@
 
     if (recognition) {
       recognition.lang = "ru-RU";
-      recognition.continuous = false;
-      recognition.interimResults = false;
+      recognition.continuous = true;
+      recognition.interimResults = true;
       recognition.onstart = () => {
         state.isListening = true;
         state.error = "";
@@ -554,14 +554,28 @@
         state.error = `Ошибка голосового ввода: ${event.error}`;
         renderControls();
       };
+      let finalTranscript = "";
+      let baseText = "";
+
       recognition.onresult = (event) => {
-        const text = event.results?.[0]?.[0]?.transcript || "";
-        if (text) {
-          state.currentInput = `${state.currentInput} ${text}`.trim();
-          renderControls();
+        let interimTranscript = "";
+
+        for (let i = event.resultIndex; i < event.results.length; i += 1) {
+          const transcript = event.results[i][0].transcript;
+
+          if (event.results[i].isFinal) {
+            finalTranscript += transcript + " ";
+          } else {
+            interimTranscript += transcript;
+          }
         }
-      };
-    }
+
+      state.currentInput = (finalTranscript + interimTranscript).trim();
+      chatInput.value = state.currentInput;
+
+      renderControls();
+      }
+    };
 
     function loadMessages() {
       try {
@@ -752,16 +766,20 @@
 
     function toggleVoice() {
       if (!recognition) {
-        state.error = "Голосовой ввод не поддерживается в этом браузере.";
-        renderControls();
-        return;
+      state.error = "Голосовой ввод не поддерживается в этом браузере.";
+      renderControls();
+      return;
       }
+
       if (state.isListening) {
-        recognition.stop();
-        return;
+      recognition.stop();
+      return;
       }
+
       try {
-        recognition.start();
+        baseText = state.currentInput;
+        finalTranscript = "";
+      recognition.start();
       } catch (_error) {
         state.error = "Не удалось запустить микрофон. Разрешите доступ к микрофону.";
         renderControls();
